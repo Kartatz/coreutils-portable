@@ -1,0 +1,42 @@
+Subject: [PATCH] byteswap: use __builtin_bswap* in the fallback trampolines
+
+The trampolines call the C23 <stdbit.h> functions stdc_memreverse8u*,
+but <byteswap.h> may be reached from within gnulib <stdbit.h> itself
+(the sysroot <sys/types.h> includes <endian.h>, which gnulib replaces
+and which includes us), making the include below a no-op and leaving
+the calls implicitly declared as int(), which later conflicts with
+the real prototypes.  Every compiler used here provides the bswap
+builtins since GCC 4.8/Clang 3.4, so call them directly and drop the
+forward-declaration dependency entirely.
+
+diff --git a/lib/byteswap.in.h b/lib/byteswap.in.h
+index 02433d30da..8bafc80fa4 100644
+--- a/lib/byteswap.in.h
++++ b/lib/byteswap.in.h
+@@ -43,7 +43,7 @@ extern "C" {
+ _GL_BYTESWAP_INLINE uint_least16_t
+ bswap_16 (uint_least16_t x)
+ {
+-  return stdc_memreverse8u16 (x);
++  return __builtin_bswap16 (x);
+ }
+ 
+ /* Given an unsigned 32-bit argument X, return the value corresponding to
+@@ -51,7 +51,7 @@ bswap_16 (uint_least16_t x)
+ _GL_BYTESWAP_INLINE uint_least32_t
+ bswap_32 (uint_least32_t x)
+ {
+-  return stdc_memreverse8u32 (x);
++  return __builtin_bswap32 (x);
+ }
+ 
+ #ifdef UINT_LEAST64_MAX
+@@ -60,7 +60,7 @@ bswap_32 (uint_least32_t x)
+ _GL_BYTESWAP_INLINE uint_least64_t
+ bswap_64 (uint_least64_t x)
+ {
+-  return stdc_memreverse8u64 (x);
++  return __builtin_bswap64 (x);
+ }
+ #endif
+ 

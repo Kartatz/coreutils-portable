@@ -138,6 +138,15 @@ else
     echo "    configure already generated, skipping (set BOOTSTRAP_FORCE=1 to redo)"
 fi
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+for p in "$script_dir"/patches/*.patch; do
+    [ -f "$p" ] || continue
+    step "applying $(basename "$p")"
+    patch --forward --quiet --batch --strip=1 --directory="$src/gnulib" --input="$p" ||
+        grep -q '__builtin_bswap16 (x)' "$src/gnulib/lib/byteswap.in.h" ||
+        die "failed to apply $p"
+done
+
 step "configuring coreutils"
 host_triplet="$("$src/build-aux/config.guess")"
 build_dir="$WORKDIR/build/${CROSS_COMPILE_TRIPLET}${CROSS_COMPILE_GLIBCVER:-}"
