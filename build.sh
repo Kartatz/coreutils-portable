@@ -1,52 +1,63 @@
 #!/usr/bin/env bash
 #
-# Cross-compile GNU coreutils (git trunk) against an old glibc using the
-# OBGGCC toolchain: https://github.com/AmanoTeam/obggcc
+# Cross-compile GNU coreutils (git trunk) for an old baseline system using the
+# AmanoTeam cross toolchains (https://github.com/AmanoTeam): OBGGCC (old glibc),
+# musl-gcc-cross, freebsd-gcc-cross, netbsd-gcc-cross, dragonfly-gcc-cross,
+# mingw-gcc-cross, darwin-clang-cross, android-gcc-cross.
 #
 # Usage: ./build.sh
 #
+# The cross environment is taken from the caller when already provisioned
+# (i.e. the 'build/autotools/<triplet>.sh' script of any of the toolchains
+# above was sourced, like the CI workflow does). Otherwise OBGGCC is fetched
+# and provisioned automatically (standalone mode for local use).
+#
 # Environment knobs (defaults):
-#   OBGGCC_TARGET=               full target spec, e.g. x86_64-unknown-linux-gnu2.31
-#                                (overrides TRIPLET/GLIBC_TARGET; "" = toolchain default)
-#   GLIBC_TARGET=2.31            target glibc; "" = toolchain default (2.3)
-#   OBGGCC_HOME=                 pre-extracted toolchain root; skips the download
+#   OBGGCC_TARGET=               OBGGCC target spec, e.g. x86_64-unknown-linux-gnu2.31
+#                                (standalone mode only; '' = toolchain default)
+#   GLIBC_TARGET=2.31            target glibc; '' = toolchain default (2.3)
+#   OBGGCC_HOME=                 pre-extracted OBGGCC root; skips the download
+#   TOOLCHAIN_URL=https://github.com/AmanoTeam/obggcc/releases/download/gcc-16/x86_64-unknown-linux-gnu.tar.xz
 #   WORKDIR=./coreutils-cross    scratch dir for toolchain, sources, build, out/
 #   COREUTILS_REPO=https://github.com/coreutils/coreutils.git
 #   COREUTILS_BRANCH=master
 #   GNULIB_URL=https://github.com/coreutils/gnulib.git   (Savannah is flaky)
-#   TOOLCHAIN_URL=https://github.com/AmanoTeam/obggcc/releases/download/gcc-16/x86_64-unknown-linux-gnu.tar.xz
-#   TRIPLET=x86_64-unknown-linux-gnu
 #   JOBS=$(nproc)                parallel build level
-#   ENABLE_NLS=1                 0 = --disable-nls
+#   ENABLE_NLS=auto              1/0 to force; auto enables it only for glibc targets
 #   STRIP_BINS=1                 0 = keep unstripped binaries
 #   SMOKE_TEST=1                 run a built binary when the host can execute it
 #   BOOTSTRAP_FORCE=0            1 = always re-run ./bootstrap
 #
-# Output: $WORKDIR/out/ — a /usr tree (bin, share/man, ...) installable on any
-# $TRIPLET machine with glibc >= $GLIBC_TARGET.
+# Output: $WORKDIR/out/ — an installable 'usr/' tree for the target system.
 
 set -euo pipefail
 
-GLIBC_TARGET="${GLIBC_TARGET-2.31}"
-TRIPLET="${TRIPLET:-x86_64-unknown-linux-gnu}"
-OBGGCC_TARGET="${OBGGCC_TARGET:-}"
-TOOLCHAIN_URL="${TOOLCHAIN_URL:-https://github.com/AmanoTeam/obggcc/releases/download/gcc-16/x86_64-unknown-linux-gnu.tar.xz}"
+if [ -n "${CROSS_COMPILE_TRIPLET:-}" ] && [ -n "${CC:-}" ]; then
+    provisioned='yes'
+else
+    provisioned='no'
+    GLIBC_TARGET="${GLIBC_TARGET-2.31}"
+    TRIPLET="${TRIPLET:-x86_64-unknown-linux-gnu}"
+    OBGGCC_TARGET="${OBGGCC_TARGET:-}"
+    TOOLCHAIN_URL="${TOOLCHAIN_URL:-https://github.com/AmanoTeam/obggcc/releases/download/gcc-16/x86_64-unknown-linux-gnu.tar.xz}"
 
-if [ -n "$OBGGCC_TARGET" ]; then
-    if [[ "$OBGGCC_TARGET" =~ ^(.*gnu(eabi|eabihf)?)([0-9]+\.[0-9]+)$ ]]; then
-        TRIPLET="${BASH_REMATCH[1]}"
-        GLIBC_TARGET="${BASH_REMATCH[3]}"
-    else
-        TRIPLET="$OBGGCC_TARGET"
-        GLIBC_TARGET=""
+    if [ -n "$OBGGCC_TARGET" ]; then
+        if [[ "$OBGGCC_TARGET" =~ ^(.*gnu(eabi|eabihf)?)([0-9]+\.[0-9]+)$ ]]; then
+            TRIPLET="${BASH_REMATCH[1]}"
+            GLIBC_TARGET="${BASH_REMATCH[3]}"
+        else
+            TRIPLET="$OBGGCC_TARGET"
+            GLIBC_TARGET=""
+        fi
     fi
 fi
+
 COREUTILS_REPO="${COREUTILS_REPO:-https://github.com/coreutils/coreutils.git}"
 COREUTILS_BRANCH="${COREUTILS_BRANCH:-master}"
 GNULIB_URL="${GNULIB_URL:-https://github.com/coreutils/gnulib.git}"
 WORKDIR="${WORKDIR:-$PWD/coreutils-cross}"
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 2)}"
-ENABLE_NLS="${ENABLE_NLS:-1}"
+ENABLE_NLS="${ENABLE_NLS:-auto}"
 STRIP_BINS="${STRIP_BINS:-1}"
 SMOKE_TEST="${SMOKE_TEST:-1}"
 BOOTSTRAP_FORCE="${BOOTSTRAP_FORCE:-0}"
@@ -60,38 +71,59 @@ need() { command -v "$1" >/dev/null 2>&1 || die "missing host build dependency: 
 for tool in curl tar xz git make perl autoconf automake autopoint bison m4 cc; do
     need "$tool"
 done
-if [ "$ENABLE_NLS" = 1 ]; then
-    need msgfmt
-fi
 
 step "host dependencies ok"
 mkdir -p "$WORKDIR"
 
-step "fetching OBGGCC toolchain from ${TOOLCHAIN_URL}"
-toolchain_tar="$WORKDIR/$(basename "${TOOLCHAIN_URL%%\?*}")"
-toolchain_dir="$WORKDIR/toolchain"
-if [ -n "${OBGGCC_HOME:-}" ]; then
-    env_script="$OBGGCC_HOME/build/autotools/${TRIPLET}${GLIBC_TARGET}.sh"
-    [ -f "$env_script" ] || die "OBGGCC_HOME has no target script for ${TRIPLET}${GLIBC_TARGET}; see ${OBGGCC_HOME}/build/autotools/"
-    echo "    using pre-provisioned toolchain at ${OBGGCC_HOME}"
+step "activating cross environment"
+if [ "$provisioned" = yes ]; then
+    echo "    using environment-provisioned toolchain (${CROSS_COMPILE_ARCHITECTURE:-?}-${CROSS_COMPILE_SYSTEM:-?})"
 else
-    toolchain_home="$toolchain_dir/obggcc"
-    env_script="$toolchain_home/build/autotools/${TRIPLET}${GLIBC_TARGET}.sh"
-    if [ ! -f "$env_script" ]; then
-        if [ ! -f "$toolchain_tar" ]; then
-            curl --fail --location --retry 3 --progress-bar \
-                -o "$toolchain_tar.part" "$TOOLCHAIN_URL"
-            mv "$toolchain_tar.part" "$toolchain_tar"
-        fi
-        rm -rf "$toolchain_dir"
-        mkdir -p "$toolchain_dir"
-        tar --extract --xz --file="$toolchain_tar" --directory="$toolchain_dir"
-        [ -f "$env_script" ] || die "toolchain has no target for glibc ${GLIBC_TARGET:-<default>}; see ${toolchain_home}/build/autotools/"
+    toolchain_tar="$WORKDIR/$(basename "${TOOLCHAIN_URL%%\?*}")"
+    toolchain_dir="$WORKDIR/toolchain"
+    if [ -n "${OBGGCC_HOME:-}" ]; then
+        env_script="$OBGGCC_HOME/build/autotools/${TRIPLET}${GLIBC_TARGET}.sh"
+        [ -f "$env_script" ] || die "OBGGCC_HOME has no target script for ${TRIPLET}${GLIBC_TARGET}; see ${OBGGCC_HOME}/build/autotools/"
+        echo "    using pre-provisioned OBGGCC toolchain at ${OBGGCC_HOME}"
     else
-        echo "    toolchain already present, skipping download"
+        toolchain_home="$toolchain_dir/obggcc"
+        env_script="$toolchain_home/build/autotools/${TRIPLET}${GLIBC_TARGET}.sh"
+        if [ ! -f "$env_script" ]; then
+            if [ ! -f "$toolchain_tar" ]; then
+                curl --fail --location --retry 3 --progress-bar \
+                    -o "$toolchain_tar.part" "$TOOLCHAIN_URL"
+                mv "$toolchain_tar.part" "$toolchain_tar"
+            fi
+            rm -rf "$toolchain_dir"
+            mkdir -p "$toolchain_dir"
+            tar --extract --xz --file="$toolchain_tar" --directory="$toolchain_dir"
+            [ -f "$env_script" ] || die "toolchain has no target for glibc ${GLIBC_TARGET:-<default>}; see ${toolchain_home}/build/autotools/"
+        fi
+        OBGGCC_HOME="$(cd "$toolchain_home" && pwd)"
+        export OBGGCC_HOME
+        PATH="$OBGGCC_HOME/bin:$PATH"
+        export PATH
     fi
-    OBGGCC_HOME="$(cd "$toolchain_home" && pwd)"
-    export OBGGCC_HOME
+    # shellcheck source=/dev/null disable=SC1090
+    source "$OBGGCC_HOME/build/autotools/${TRIPLET}${GLIBC_TARGET}.sh"
+fi
+echo "    CC=${CC}"
+echo "    target triplet=${CROSS_COMPILE_TRIPLET}"
+if [ -n "${CROSS_COMPILE_GLIBCVER:-}" ]; then
+    echo "    target glibc=${CROSS_COMPILE_GLIBCVER}"
+fi
+
+if [ "$ENABLE_NLS" = auto ]; then
+    case "${CROSS_COMPILE_TRIPLET}${CROSS_COMPILE_GLIBCVER:-}" in
+        *-linux-gnu*) ENABLE_NLS=1 ;;
+        *) ENABLE_NLS=0 ;;
+    esac
+fi
+if [ "$ENABLE_NLS" = 1 ]; then
+    need msgfmt
+    echo "    nls: enabled"
+else
+    echo "    nls: disabled"
 fi
 
 step "fetching coreutils trunk (${COREUTILS_BRANCH} from ${COREUTILS_REPO})"
@@ -119,17 +151,9 @@ else
     echo "    configure already generated, skipping (set BOOTSTRAP_FORCE=1 to redo)"
 fi
 
-step "activating OBGGCC cross environment"
-# shellcheck source=/dev/null disable=SC1090
-source "$OBGGCC_HOME/build/autotools/${TRIPLET}${GLIBC_TARGET}.sh"
-PATH="$OBGGCC_HOME/bin:$PATH"
-export PATH
-echo "    CC=${CC}"
-echo "    target glibc=${CROSS_COMPILE_GLIBCVER}"
-
 step "configuring coreutils"
 host_triplet="$("$src/build-aux/config.guess")"
-build_dir="$WORKDIR/build${GLIBC_TARGET:+-$GLIBC_TARGET}"
+build_dir="$WORKDIR/build/${CROSS_COMPILE_TRIPLET}${CROSS_COMPILE_GLIBCVER:-}"
 mkdir -p "$build_dir"
 cd "$build_dir"
 conf_opts=(
@@ -138,10 +162,11 @@ conf_opts=(
     --prefix=/usr
     --disable-gcc-warnings
 )
-case "$TRIPLET" in
-    i[3-6]86-*|arm-*)
+case "$CROSS_COMPILE_TRIPLET" in
+    i[3-6]86-*-linux-gnu*|arm-*-linux-gnueabi*)
         # 32-bit glibc gained 64-bit time_t in 2.34; older sysroots cannot enable year2038.
-        if [ -z "$GLIBC_TARGET" ] || [ -n "$(printf '%s\n' "${GLIBC_TARGET:-2.3}" | awk '$1 < 2.34')" ]; then
+        glibc_ref="${CROSS_COMPILE_GLIBCVER:-2.3}"
+        if [ -n "$(printf '%s\n' "$glibc_ref" | awk '$1 < 2.34')" ]; then
             conf_opts+=("--disable-year2038")
         fi
         ;;
@@ -159,10 +184,11 @@ rm -rf "$DESTDIR"
 make DESTDIR="$DESTDIR" install
 
 if [ "$STRIP_BINS" = 1 ]; then
-    step "stripping ELF files"
+    step "stripping binaries"
     while IFS= read -r -d '' bin; do
-        if [ "$(head -c 4 "$bin")" = "$(printf '\x7fELF')" ]; then
-            "$STRIP" --strip-unneeded "$bin" 2>/dev/null || true
+        magic="$(head -c 4 "$bin")"
+        if [ "$magic" = "$(printf '\x7fELF')" ] || [ "$magic" = "$(printf 'MZ')" ]; then
+            "${STRIP:-strip}" --strip-unneeded "$bin" 2>/dev/null || true
         fi
     done < <(find "$DESTDIR" -type f -print0)
 fi
@@ -173,20 +199,22 @@ if [ "$SMOKE_TEST" = 1 ]; then
         "$DESTDIR/usr/bin/ls" --version | head -n 1
         "$DESTDIR/usr/bin/cat" <<< "smoke test: $(uname -m) host ran the cross-built binary"
     else
-        echo "    cannot execute ${TRIPLET} binaries on this $(uname -m) host; skipped"
+        echo "    cannot execute ${CROSS_COMPILE_TRIPLET} binaries on this $(uname -m) host; skipped"
     fi
 fi
 
 step "summary"
 version="$(sed -n 's/^#define PACKAGE_VERSION "\(.*\)"/\1/p' "$build_dir/lib/config.h")"
-glibc_needed="$(
-    find "$DESTDIR/usr/bin" -type f -print0 |
-    xargs -0 --no-run-if-empty "$READELF" --version-info 2>/dev/null |
-    grep -o 'GLIBC_[0-9.]*' | sort -Vu | tail -n 1
-)"
-bin_count="$(find "$DESTDIR/usr/bin" -type f | wc -l)"
+bin_count="$(find "$DESTDIR/usr/bin" -maxdepth 1 -type f | wc -l)"
 echo "    coreutils version: ${version} ${rev_info}"
 echo "    binaries installed: ${bin_count} -> ${DESTDIR}/usr/bin"
-echo "    target triplet:     ${CROSS_COMPILE_TRIPLET} (glibc ${CROSS_COMPILE_GLIBCVER})"
-echo "    highest glibc symbol required: ${glibc_needed:-none}"
+if [ -n "${CROSS_COMPILE_GLIBCVER:-}" ]; then
+    glibc_needed="$(
+        find "$DESTDIR/usr/bin" -maxdepth 1 -type f -print0 |
+        xargs -0 --no-run-if-empty "${READELF:-readelf}" --version-info 2>/dev/null |
+        grep -o 'GLIBC_[0-9.]*' | sort -Vu | tail -n 1
+    )"
+    echo "    target glibc:        ${CROSS_COMPILE_GLIBCVER} (highest symbol required: ${glibc_needed:-none})"
+fi
+echo "    target system:        ${CROSS_COMPILE_ARCHITECTURE:-?}-${CROSS_COMPILE_SYSTEM:-?}"
 echo "    deploy: tar -C '$DESTDIR' -cf - usr | tar -C / -xf -"

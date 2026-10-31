@@ -44,6 +44,20 @@ $ OBGGCC_TARGET='x86_64-unknown-linux-gnu2.17' ./build.sh
 ## Continuous integration
 
 The [GitHub Actions workflow](.github/workflows/build.yml) cross-compiles a
-matrix of supported architectures and glibc versions on every push and daily
-on schedule (to track coreutils master), and uploads the resulting tarballs
-and their SHA-256 checksums to a rolling release.
+matrix of targets on every push and daily on schedule (to track coreutils
+master), reusing the build logic of
+[AmanoTeam/Kad](https://github.com/AmanoTeam/Kad) with its toolchain family:
+
+* **Windows**: `x86_64-w64-mingw32`, `i686-w64-mingw32` ([mingw-gcc-cross](https://github.com/AmanoTeam/mingw-gcc-cross))
+* **macOS**: `aarch64-unknown-apple-darwin`, `x86_64-unknown-apple-darwin` ([darwin-clang-cross](https://github.com/AmanoTeam/darwin-clang-cross))
+* **Linux (glibc)**: `x86_64`, `i386`, `arm`, `aarch64` with selectable baseline glibc ([OBGGCC](https://github.com/AmanoTeam/obggcc))
+* **Linux (musl)**: `aarch64`, `x86_64`, `armv6`, `armv7`, `i386` ([musl-gcc-cross](https://github.com/AmanoTeam/musl-gcc-cross))
+* **FreeBSD**: `x86_64`, `aarch64`, `i386` ([freebsd-gcc-cross](https://github.com/AmanoTeam/freebsd-gcc-cross))
+* **NetBSD**: `i386`, `x86_64` ([netbsd-gcc-cross](https://github.com/AmanoTeam/netbsd-gcc-cross))
+* **DragonFly BSD**: `x86_64` ([dragonfly-gcc-cross](https://github.com/AmanoTeam/dragonfly-gcc-cross))
+* **Android**: `x86_64`, `i686`, `aarch64`, `armv7` ([android-gcc-cross](https://github.com/AmanoTeam/android-gcc-cross))
+
+The resulting tarballs/zips and their SHA-256 checksums are uploaded to a
+rolling release. Targets a given coreutils revision cannot support (e.g.
+native Windows, where coreutils requires Cygwin) are excluded from the matrix
+as evidence accumulates in the build history.
