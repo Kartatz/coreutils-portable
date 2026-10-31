@@ -51,7 +51,7 @@ master), reusing the build logic of
 [AmanoTeam/Kad](https://github.com/AmanoTeam/Kad) with its toolchain family:
 
 * **macOS**: `aarch64-unknown-apple-darwin`, `x86_64-unknown-apple-darwin` ([darwin-clang-cross](https://github.com/AmanoTeam/darwin-clang-cross))
-* **Linux (glibc)**: `x86_64`, `i386`, `arm`, `aarch64` against every baseline glibc each architecture supports in [OBGGCC](https://github.com/AmanoTeam/obggcc) (glibc 2.3/2.7/…/2.39 where available)
+* **Linux (glibc)**: `x86_64`, `i386`, `arm`, `aarch64` — built once per arch against the *oldest* glibc each supports in [OBGGCC](https://github.com/AmanoTeam/obggcc), which runs on every newer glibc too
 * **Linux (musl)**: `aarch64`, `x86_64`, `armv6`, `armv7`, `i386` ([musl-gcc-cross](https://github.com/AmanoTeam/musl-gcc-cross))
 * **FreeBSD**: `x86_64`, `aarch64`, `i386` ([freebsd-gcc-cross](https://github.com/AmanoTeam/freebsd-gcc-cross))
 * **NetBSD**: `i386`, `x86_64` ([netbsd-gcc-cross](https://github.com/AmanoTeam/netbsd-gcc-cross))
