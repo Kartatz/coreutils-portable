@@ -1,0 +1,86 @@
+name: Build
+
+on:
+  schedule:
+    - cron: '30 5 * * *'
+  workflow_dispatch:
+  push:
+    branches:
+        - '**'
+
+permissions: write-all
+
+jobs:
+  cross-build:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      matrix:
+        target: [
+          # Linux (glibc)
+          'x86_64-unknown-linux-gnu2.3',
+          'x86_64-unknown-linux-gnu2.31',
+          'x86_64-unknown-linux-gnu2.39',
+
+          # Linux (glibc, other architectures)
+          'i386-unknown-linux-gnu2.31',
+          'arm-unknown-linux-gnueabihf2.31',
+          'aarch64-unknown-linux-gnu2.31',
+        ]
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@main
+    - name: Install build dependencies
+      run: sudo apt-get update --quiet && sudo apt-get install --quiet --yes autoconf automake autopoint bison gperf gettext m4 patch texinfo
+    - name: Cross-compile coreutils to ${{ matrix.target }}
+      working-directory: './'
+      env:
+        OBGGCC_TARGET: '${{ matrix.target }}'
+        WORKDIR: '${{ github.workspace }}/coreutils-cross'
+      run: |
+        declare -r OBGGCC_TARBALL='/tmp/toolchain.tar.xz'
+        declare -r OBGGCC_URL="https://github.com/AmanoTeam/obggcc/releases/download/gcc-16/x86_64-unknown-linux-gnu.tar.xz"
+
+        curl --connect-timeout '10' --retry '15' --retry-all-errors --fail --silent --location --url "${OBGGCC_URL}" --output "${OBGGCC_TARBALL}"
+        tar --directory="$(dirname "${OBGGCC_TARBALL}")" --extract --file="${OBGGCC_TARBALL}"
+
+        export OBGGCC_HOME='/tmp/obggcc'
+        export PATH="${OBGGCC_HOME}/bin:${PATH}"
+
+        source "${OBGGCC_HOME}/build/autotools/${{ matrix.target }}.sh"
+
+        echo "CROSS_COMPILE_TRIPLET=${CROSS_COMPILE_TRIPLET}" >> "${GITHUB_ENV}"
+
+        './build.sh'
+    - name: Generate tarball
+      run: |
+        declare tarball_filename='/tmp/${{ matrix.target }}.tar.xz'
+        tar --directory="${{ github.workspace }}/coreutils-cross/out" --create --file=- 'usr' | xz --threads='0' --extreme --memlimit-compress='100%' --compress -9 > "${tarball_filename}"
+        sha256sum "${tarball_filename}" | sed 's|/tmp/||' > "${tarball_filename}.sha256"
+    - name: Upload artifact
+      uses: actions/upload-artifact@main
+      with:
+        name: ${{ matrix.target }}
+        if-no-files-found: error
+        path: |
+          /tmp/${{ matrix.target }}.*
+
+  release:
+    needs: cross-build
+    runs-on: ubuntu-latest
+    name: Create release
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@main
+      - name: Create release
+        uses: softprops/action-gh-release@master
+        with:
+          tag_name: 'latest'
+          name: 'GNU coreutils (rolling)'
+          files: ./*/*.tar.xz
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          body: '* Rolling release tracking GNU coreutils master, cross-compiled with OBGGCC.'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
