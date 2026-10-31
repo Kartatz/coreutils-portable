@@ -138,6 +138,14 @@ conf_opts=(
     --prefix=/usr
     --disable-gcc-warnings
 )
+case "$TRIPLET" in
+    i[3-6]86-*|arm-*)
+        # 32-bit glibc gained 64-bit time_t in 2.34; older sysroots cannot enable year2038.
+        if [ -z "$GLIBC_TARGET" ] || [ -n "$(printf '%s\n' "${GLIBC_TARGET:-2.3}" | awk '$1 < 2.34')" ]; then
+            conf_opts+=("--disable-year2038")
+        fi
+        ;;
+esac
 if [ "$ENABLE_NLS" != 1 ]; then
     conf_opts+=("--disable-nls")
 fi
