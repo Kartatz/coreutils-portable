@@ -33,12 +33,14 @@ $ ./build.sh
 ```
 
 By default, coreutils master is cross-compiled for `x86_64-unknown-linux-gnu`
-against glibc 2.31, producing a self-contained `usr/` tree under
-`coreutils-cross/out/`. All knobs are environment variables (see the header of
-[build.sh](build.sh) for the full list), e.g.:
+against the toolchain's default (oldest) glibc, producing a self-contained
+`usr/` tree under `coreutils-cross/out/`. To target a different baseline, source
+the matching toolchain environment script first — `build.sh` picks up whatever
+cross environment the caller provisioned:
 
 ```
-$ OBGGCC_TARGET='x86_64-unknown-linux-gnu2.17' ./build.sh
+$ source 'obggcc/build/autotools/x86_64-unknown-linux-gnu2.17.sh'
+$ ./build.sh
 ```
 
 ## Continuous integration
@@ -49,7 +51,7 @@ master), reusing the build logic of
 [AmanoTeam/Kad](https://github.com/AmanoTeam/Kad) with its toolchain family:
 
 * **macOS**: `aarch64-unknown-apple-darwin`, `x86_64-unknown-apple-darwin` ([darwin-clang-cross](https://github.com/AmanoTeam/darwin-clang-cross))
-* **Linux (glibc)**: `x86_64`, `i386`, `arm`, `aarch64` with selectable baseline glibc ([OBGGCC](https://github.com/AmanoTeam/obggcc))
+* **Linux (glibc)**: `x86_64`, `i386`, `arm`, `aarch64` against every baseline glibc each architecture supports in [OBGGCC](https://github.com/AmanoTeam/obggcc) (glibc 2.3/2.7/…/2.39 where available)
 * **Linux (musl)**: `aarch64`, `x86_64`, `armv6`, `armv7`, `i386` ([musl-gcc-cross](https://github.com/AmanoTeam/musl-gcc-cross))
 * **FreeBSD**: `x86_64`, `aarch64`, `i386` ([freebsd-gcc-cross](https://github.com/AmanoTeam/freebsd-gcc-cross))
 * **NetBSD**: `i386`, `x86_64` ([netbsd-gcc-cross](https://github.com/AmanoTeam/netbsd-gcc-cross))

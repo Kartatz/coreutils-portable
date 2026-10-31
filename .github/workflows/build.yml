@@ -16,53 +16,92 @@ jobs:
     continue-on-error: true
     strategy:
       matrix:
-        target: [
+        include:
           # Windows: coreutils requires a POSIX system (e.g. 'pwd.h' is missing
           # on native Windows); it is not buildable with MinGW, only Cygwin.
 
           # macOS
-          'aarch64-unknown-apple-darwin',
-          'x86_64-unknown-apple-darwin',
+          - target: 'aarch64-unknown-apple-darwin'
+          - target: 'x86_64-unknown-apple-darwin'
 
           # Linux (glibc)
-          'x86_64-unknown-linux-gnu2.3',
-          'x86_64-unknown-linux-gnu2.31',
-          'x86_64-unknown-linux-gnu2.39',
-          'i386-unknown-linux-gnu2.31',
-          'arm-unknown-linux-gnueabihf2.31',
-          'aarch64-unknown-linux-gnu2.31',
+          - { target: 'x86_64-unknown-linux-gnu', glibc: '2.3' }
+          - { target: 'x86_64-unknown-linux-gnu', glibc: '2.7' }
+          - { target: 'x86_64-unknown-linux-gnu', glibc: '2.11' }
+          - { target: 'x86_64-unknown-linux-gnu', glibc: '2.13' }
+          - { target: 'x86_64-unknown-linux-gnu', glibc: '2.15' }
+          - { target: 'x86_64-unknown-linux-gnu', glibc: '2.17' }
+          - { target: 'x86_64-unknown-linux-gnu', glibc: '2.19' }
+          - { target: 'x86_64-unknown-linux-gnu', glibc: '2.23' }
+          - { target: 'x86_64-unknown-linux-gnu', glibc: '2.24' }
+          - { target: 'x86_64-unknown-linux-gnu', glibc: '2.27' }
+          - { target: 'x86_64-unknown-linux-gnu', glibc: '2.28' }
+          - { target: 'x86_64-unknown-linux-gnu', glibc: '2.31' }
+          - { target: 'x86_64-unknown-linux-gnu', glibc: '2.35' }
+          - { target: 'x86_64-unknown-linux-gnu', glibc: '2.39' }
+          - { target: 'i386-unknown-linux-gnu', glibc: '2.3' }
+          - { target: 'i386-unknown-linux-gnu', glibc: '2.7' }
+          - { target: 'i386-unknown-linux-gnu', glibc: '2.11' }
+          - { target: 'i386-unknown-linux-gnu', glibc: '2.13' }
+          - { target: 'i386-unknown-linux-gnu', glibc: '2.15' }
+          - { target: 'i386-unknown-linux-gnu', glibc: '2.17' }
+          - { target: 'i386-unknown-linux-gnu', glibc: '2.19' }
+          - { target: 'i386-unknown-linux-gnu', glibc: '2.23' }
+          - { target: 'i386-unknown-linux-gnu', glibc: '2.24' }
+          - { target: 'i386-unknown-linux-gnu', glibc: '2.27' }
+          - { target: 'i386-unknown-linux-gnu', glibc: '2.28' }
+          - { target: 'i386-unknown-linux-gnu', glibc: '2.31' }
+          - { target: 'i386-unknown-linux-gnu', glibc: '2.35' }
+          - { target: 'i386-unknown-linux-gnu', glibc: '2.39' }
+          - { target: 'arm-unknown-linux-gnueabihf', glibc: '2.13' }
+          - { target: 'arm-unknown-linux-gnueabihf', glibc: '2.17' }
+          - { target: 'arm-unknown-linux-gnueabihf', glibc: '2.19' }
+          - { target: 'arm-unknown-linux-gnueabihf', glibc: '2.23' }
+          - { target: 'arm-unknown-linux-gnueabihf', glibc: '2.24' }
+          - { target: 'arm-unknown-linux-gnueabihf', glibc: '2.27' }
+          - { target: 'arm-unknown-linux-gnueabihf', glibc: '2.28' }
+          - { target: 'arm-unknown-linux-gnueabihf', glibc: '2.31' }
+          - { target: 'arm-unknown-linux-gnueabihf', glibc: '2.35' }
+          - { target: 'arm-unknown-linux-gnueabihf', glibc: '2.39' }
+          - { target: 'aarch64-unknown-linux-gnu', glibc: '2.19' }
+          - { target: 'aarch64-unknown-linux-gnu', glibc: '2.23' }
+          - { target: 'aarch64-unknown-linux-gnu', glibc: '2.24' }
+          - { target: 'aarch64-unknown-linux-gnu', glibc: '2.27' }
+          - { target: 'aarch64-unknown-linux-gnu', glibc: '2.28' }
+          - { target: 'aarch64-unknown-linux-gnu', glibc: '2.31' }
+          - { target: 'aarch64-unknown-linux-gnu', glibc: '2.35' }
+          - { target: 'aarch64-unknown-linux-gnu', glibc: '2.39' }
 
           # Linux (musl)
-          'aarch64-unknown-linux-musl',
-          'x86_64-unknown-linux-musl',
-          'armv6-unknown-linux-musleabihf',
-          'armv7-unknown-linux-musleabihf',
-          'i386-unknown-linux-musl',
+          - target: 'aarch64-unknown-linux-musl'
+          - target: 'x86_64-unknown-linux-musl'
+          - target: 'armv6-unknown-linux-musleabihf'
+          - target: 'armv7-unknown-linux-musleabihf'
+          - target: 'i386-unknown-linux-musl'
 
           # FreeBSD
-          'x86_64-unknown-freebsd',
-          'aarch64-unknown-freebsd',
-          'i386-unknown-freebsd',
+          - target: 'x86_64-unknown-freebsd'
+          - target: 'aarch64-unknown-freebsd'
+          - target: 'i386-unknown-freebsd'
 
           # NetBSD
-          'i386-unknown-netbsdelf',
-          'x86_64-unknown-netbsd',
+          - target: 'i386-unknown-netbsdelf'
+          - target: 'x86_64-unknown-netbsd'
 
           # DragonFly BSD
-          'x86_64-unknown-dragonfly',
+          - target: 'x86_64-unknown-dragonfly'
 
           # Android
-          'x86_64-unknown-linux-android',
-          'i686-unknown-linux-android21',
-          'aarch64-unknown-linux-android',
-          'armv7-unknown-linux-androideabi21',
-        ]
+          - target: 'x86_64-unknown-linux-android'
+          - target: 'i686-unknown-linux-android21'
+          - target: 'aarch64-unknown-linux-android'
+          - target: 'armv7-unknown-linux-androideabi21'
     steps:
     - name: Checkout repository
       uses: actions/checkout@main
     - name: Install build dependencies
       run: sudo apt-get update --quiet && sudo apt-get install --quiet --yes autoconf automake autopoint bison gperf gettext m4 patch texinfo zip
-    - name: Cross-compile coreutils to ${{ matrix.target }}
+    - name: Cross-compile coreutils to ${{ matrix.target }}${{ matrix.glibc }}
       working-directory: './'
       env:
         WORKDIR: '${{ github.workspace }}/coreutils-cross'
@@ -88,7 +127,7 @@ jobs:
             export OBGGCC_HOME='/tmp/obggcc'
             export PATH="${OBGGCC_HOME}/bin:${PATH}"
 
-            source "${OBGGCC_HOME}/build/autotools/${{ matrix.target }}.sh"
+            source "${OBGGCC_HOME}/build/autotools/${{ matrix.target }}${{ matrix.glibc }}.sh"
         elif [[ '${{ matrix.target }}' = *'-freebsd' ]]; then
             declare -r LOKI_TARBALL='/tmp/toolchain.tar.xz'
             declare -r LOKI_URL="https://github.com/AmanoTeam/freebsd-gcc-cross/releases/latest/download/x86_64-unknown-linux-gnu.tar.xz"
@@ -132,7 +171,7 @@ jobs:
             export MINGW_HOME='/tmp/mingw-gcc-cross'
             export PATH="${MINGW_HOME}/bin:${PATH}"
 
-            source "${MINGW_HOME}/build/autotools/${{ matrix.target }}.sh"
+            source "${MINGW_HOME}/build/autotools/${{ matrix.target }}${{ matrix.glibc }}.sh"
         elif [[ '${{ matrix.target }}' = *'-darwin' ]]; then
             curl \
                 --silent \
@@ -155,7 +194,7 @@ jobs:
             export PINO_HOME='/tmp/android-gcc-cross'
             export PATH="${PINO_HOME}/bin:${PATH}"
 
-            source "${PINO_HOME}/build/autotools/${{ matrix.target }}.sh"
+            source "${PINO_HOME}/build/autotools/${{ matrix.target }}${{ matrix.glibc }}.sh"
         fi
 
         echo "CROSS_COMPILE_TRIPLET=${CROSS_COMPILE_TRIPLET}" >> "${GITHUB_ENV}"
@@ -163,16 +202,16 @@ jobs:
         './build.sh'
     - name: Generate tarball
       run: |
-        declare tarball_filename='/tmp/${{ matrix.target }}.tar.xz'
+        declare tarball_filename='/tmp/${{ matrix.target }}${{ matrix.glibc }}.tar.xz'
         tar --directory='${{ github.workspace }}/coreutils-cross/out' --create --file=- 'usr' | xz --threads='0' --extreme --memlimit-compress='100%' --compress -9 > "${tarball_filename}"
         sha256sum "${tarball_filename}" | sed 's|/tmp/||' > "${tarball_filename}.sha256"
     - name: Upload artifact
       uses: actions/upload-artifact@main
       with:
-        name: ${{ matrix.target }}
+        name: ${{ matrix.target }}${{ matrix.glibc }}
         if-no-files-found: error
         path: |
-          /tmp/${{ matrix.target }}.*
+          /tmp/${{ matrix.target }}${{ matrix.glibc }}.*
 
   release:
     needs: cross-build

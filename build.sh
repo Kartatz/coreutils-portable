@@ -13,9 +13,8 @@
 # and provisioned automatically (standalone mode for local use).
 #
 # Environment knobs (defaults):
-#   OBGGCC_TARGET=               OBGGCC target spec, e.g. x86_64-unknown-linux-gnu2.31
-#                                (standalone mode only; '' = toolchain default)
-#   GLIBC_TARGET=2.31            target glibc; '' = toolchain default (2.3)
+#   TRIPLET=x86_64-unknown-linux-gnu   OBGGCC target triplet (standalone mode;
+#                                targets the toolchain default, i.e. oldest glibc)
 #   OBGGCC_HOME=                 pre-extracted OBGGCC root; skips the download
 #   TOOLCHAIN_URL=https://github.com/AmanoTeam/obggcc/releases/download/gcc-16/x86_64-unknown-linux-gnu.tar.xz
 #   WORKDIR=./coreutils-cross    scratch dir for toolchain, sources, build, out/
@@ -36,20 +35,8 @@ if [ -n "${CROSS_COMPILE_TRIPLET:-}" ] && [ -n "${CC:-}" ]; then
     provisioned='yes'
 else
     provisioned='no'
-    GLIBC_TARGET="${GLIBC_TARGET-2.31}"
     TRIPLET="${TRIPLET:-x86_64-unknown-linux-gnu}"
-    OBGGCC_TARGET="${OBGGCC_TARGET:-}"
     TOOLCHAIN_URL="${TOOLCHAIN_URL:-https://github.com/AmanoTeam/obggcc/releases/download/gcc-16/x86_64-unknown-linux-gnu.tar.xz}"
-
-    if [ -n "$OBGGCC_TARGET" ]; then
-        if [[ "$OBGGCC_TARGET" =~ ^(.*gnu(eabi|eabihf)?)([0-9]+\.[0-9]+)$ ]]; then
-            TRIPLET="${BASH_REMATCH[1]}"
-            GLIBC_TARGET="${BASH_REMATCH[3]}"
-        else
-            TRIPLET="$OBGGCC_TARGET"
-            GLIBC_TARGET=""
-        fi
-    fi
 fi
 
 COREUTILS_REPO="${COREUTILS_REPO:-https://github.com/coreutils/coreutils.git}"
@@ -82,12 +69,12 @@ else
     toolchain_tar="$WORKDIR/$(basename "${TOOLCHAIN_URL%%\?*}")"
     toolchain_dir="$WORKDIR/toolchain"
     if [ -n "${OBGGCC_HOME:-}" ]; then
-        env_script="$OBGGCC_HOME/build/autotools/${TRIPLET}${GLIBC_TARGET}.sh"
-        [ -f "$env_script" ] || die "OBGGCC_HOME has no target script for ${TRIPLET}${GLIBC_TARGET}; see ${OBGGCC_HOME}/build/autotools/"
+        env_script="$OBGGCC_HOME/build/autotools/${TRIPLET}.sh"
+        [ -f "$env_script" ] || die "OBGGCC_HOME has no target script for ${TRIPLET}; see ${OBGGCC_HOME}/build/autotools/"
         echo "    using pre-provisioned OBGGCC toolchain at ${OBGGCC_HOME}"
     else
         toolchain_home="$toolchain_dir/obggcc"
-        env_script="$toolchain_home/build/autotools/${TRIPLET}${GLIBC_TARGET}.sh"
+        env_script="$toolchain_home/build/autotools/${TRIPLET}.sh"
         if [ ! -f "$env_script" ]; then
             if [ ! -f "$toolchain_tar" ]; then
                 curl --fail --location --retry 3 --progress-bar \
@@ -97,7 +84,7 @@ else
             rm -rf "$toolchain_dir"
             mkdir -p "$toolchain_dir"
             tar --extract --xz --file="$toolchain_tar" --directory="$toolchain_dir"
-            [ -f "$env_script" ] || die "toolchain has no target for glibc ${GLIBC_TARGET:-<default>}; see ${toolchain_home}/build/autotools/"
+            [ -f "$env_script" ] || die "toolchain has no target script for ${TRIPLET}; see ${toolchain_home}/build/autotools/"
         fi
         OBGGCC_HOME="$(cd "$toolchain_home" && pwd)"
         export OBGGCC_HOME
@@ -105,7 +92,7 @@ else
         export PATH
     fi
     # shellcheck source=/dev/null disable=SC1090
-    source "$OBGGCC_HOME/build/autotools/${TRIPLET}${GLIBC_TARGET}.sh"
+    source "$OBGGCC_HOME/build/autotools/${TRIPLET}.sh"
 fi
 echo "    CC=${CC}"
 echo "    target triplet=${CROSS_COMPILE_TRIPLET}"
