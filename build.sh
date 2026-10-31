@@ -170,6 +170,14 @@ case "$CROSS_COMPILE_TRIPLET" in
             conf_opts+=("--disable-year2038")
         fi
         ;;
+    i[3-6]86-unknown-linux-android*|armv7-unknown-linux-androideabi*)
+        # 32-bit bionic cannot prove 64-bit time_t under cross-compilation.
+        conf_opts+=("--disable-year2038")
+        ;;
+    i[3-6]86-*-freebsd*)
+        # 32-bit FreeBSD cannot prove year2038 support under cross-compilation.
+        conf_opts+=("--disable-year2038")
+        ;;
 esac
 if [ "$ENABLE_NLS" != 1 ]; then
     conf_opts+=("--disable-nls")

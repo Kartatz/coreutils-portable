@@ -17,9 +17,8 @@ jobs:
     strategy:
       matrix:
         target: [
-          # Windows
-          'x86_64-w64-mingw32',
-          'i686-w64-mingw32',
+          # Windows: coreutils requires a POSIX system (e.g. 'pwd.h' is missing
+          # on native Windows); it is not buildable with MinGW, only Cygwin.
 
           # macOS
           'aarch64-unknown-apple-darwin',
@@ -56,7 +55,7 @@ jobs:
           'x86_64-unknown-linux-android',
           'i686-unknown-linux-android21',
           'aarch64-unknown-linux-android',
-          'armv7-unknown-androideabi21',
+          'armv7-unknown-linux-androideabi21',
         ]
     steps:
     - name: Checkout repository
@@ -164,14 +163,8 @@ jobs:
         './build.sh'
     - name: Generate tarball
       run: |
-        if [[ '${{ env.CROSS_COMPILE_TRIPLET }}' = *'-mingw32' ]]; then
-            declare tarball_filename='/tmp/${{ matrix.target }}.zip'
-            cd '${{ github.workspace }}/coreutils-cross/out'
-            zip --recurse-paths -9 "${tarball_filename}" 'usr'
-        else
-            declare tarball_filename='/tmp/${{ matrix.target }}.tar.xz'
-            tar --directory='${{ github.workspace }}/coreutils-cross/out' --create --file=- 'usr' | xz --threads='0' --extreme --memlimit-compress='100%' --compress -9 > "${tarball_filename}"
-        fi
+        declare tarball_filename='/tmp/${{ matrix.target }}.tar.xz'
+        tar --directory='${{ github.workspace }}/coreutils-cross/out' --create --file=- 'usr' | xz --threads='0' --extreme --memlimit-compress='100%' --compress -9 > "${tarball_filename}"
         sha256sum "${tarball_filename}" | sed 's|/tmp/||' > "${tarball_filename}.sha256"
     - name: Upload artifact
       uses: actions/upload-artifact@main
@@ -193,9 +186,7 @@ jobs:
         with:
           tag_name: 'latest'
           name: 'GNU coreutils (rolling)'
-          files: |
-            ./*/*.tar.xz
-            ./*/*.zip
+          files: ./*/*.tar.xz
           draft: false
           prerelease: false
           fail_on_unmatched_files: true

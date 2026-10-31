@@ -48,7 +48,6 @@ matrix of targets on every push and daily on schedule (to track coreutils
 master), reusing the build logic of
 [AmanoTeam/Kad](https://github.com/AmanoTeam/Kad) with its toolchain family:
 
-* **Windows**: `x86_64-w64-mingw32`, `i686-w64-mingw32` ([mingw-gcc-cross](https://github.com/AmanoTeam/mingw-gcc-cross))
 * **macOS**: `aarch64-unknown-apple-darwin`, `x86_64-unknown-apple-darwin` ([darwin-clang-cross](https://github.com/AmanoTeam/darwin-clang-cross))
 * **Linux (glibc)**: `x86_64`, `i386`, `arm`, `aarch64` with selectable baseline glibc ([OBGGCC](https://github.com/AmanoTeam/obggcc))
 * **Linux (musl)**: `aarch64`, `x86_64`, `armv6`, `armv7`, `i386` ([musl-gcc-cross](https://github.com/AmanoTeam/musl-gcc-cross))
@@ -57,7 +56,9 @@ master), reusing the build logic of
 * **DragonFly BSD**: `x86_64` ([dragonfly-gcc-cross](https://github.com/AmanoTeam/dragonfly-gcc-cross))
 * **Android**: `x86_64`, `i686`, `aarch64`, `armv7` ([android-gcc-cross](https://github.com/AmanoTeam/android-gcc-cross))
 
-The resulting tarballs/zips and their SHA-256 checksums are uploaded to a
-rolling release. Targets a given coreutils revision cannot support (e.g.
-native Windows, where coreutils requires Cygwin) are excluded from the matrix
-as evidence accumulates in the build history.
+The resulting tarballs and their SHA-256 checksums are uploaded to a rolling
+release. Native Windows (`*-w64-mingw32`) is not in the matrix because
+coreutils requires a POSIX system (`pwd.h` etc. are absent on native Windows);
+use Cygwin there instead. Targets proven unbuildable by a given coreutils
+revision are excluded from the matrix as evidence accumulates in the build
+history — a MinGW attempt failed at `lib/userspec.c` (missing `pwd.h`).
