@@ -16,45 +16,45 @@ jobs:
     continue-on-error: true
     strategy:
       matrix:
-        include:
+        target: [
           # Windows: coreutils requires a POSIX system (e.g. 'pwd.h' is missing
           # on native Windows); it is not buildable with MinGW, only Cygwin.
 
           # macOS
-          - target: 'aarch64-unknown-apple-darwin'
-          - target: 'x86_64-unknown-apple-darwin'
+          'aarch64-unknown-apple-darwin',
+          'x86_64-unknown-apple-darwin',
 
-          # Linux (glibc); one build per arch against the oldest glibc the
-          # toolchain provides — it runs on every newer glibc as well.
-          - target: 'x86_64-unknown-linux-gnu'
-          - target: 'i386-unknown-linux-gnu'
-          - target: 'arm-unknown-linux-gnueabihf'
-          - target: 'aarch64-unknown-linux-gnu'
+          # Linux (glibc)
+          'x86_64-unknown-linux-gnu',
+          'i386-unknown-linux-gnu',
+          'arm-unknown-linux-gnueabihf',
+          'aarch64-unknown-linux-gnu',
 
           # Linux (musl)
-          - target: 'aarch64-unknown-linux-musl'
-          - target: 'x86_64-unknown-linux-musl'
-          - target: 'armv6-unknown-linux-musleabihf'
-          - target: 'armv7-unknown-linux-musleabihf'
-          - target: 'i386-unknown-linux-musl'
+          'aarch64-unknown-linux-musl',
+          'x86_64-unknown-linux-musl',
+          'armv6-unknown-linux-musleabihf',
+          'armv7-unknown-linux-musleabihf',
+          'i386-unknown-linux-musl',
 
           # FreeBSD
-          - target: 'x86_64-unknown-freebsd'
-          - target: 'aarch64-unknown-freebsd'
-          - target: 'i386-unknown-freebsd'
+          'x86_64-unknown-freebsd',
+          'aarch64-unknown-freebsd',
+          'i386-unknown-freebsd',
 
           # NetBSD
-          - target: 'i386-unknown-netbsdelf'
-          - target: 'x86_64-unknown-netbsd'
+          'i386-unknown-netbsdelf',
+          'x86_64-unknown-netbsd',
 
           # DragonFly BSD
-          - target: 'x86_64-unknown-dragonfly'
+          'x86_64-unknown-dragonfly',
 
           # Android
-          - target: 'x86_64-unknown-linux-android'
-          - target: 'i686-unknown-linux-android21'
-          - target: 'aarch64-unknown-linux-android'
-          - target: 'armv7-unknown-linux-androideabi21'
+          'x86_64-unknown-linux-android',
+          'i686-unknown-linux-android21',
+          'aarch64-unknown-linux-android',
+          'armv7-unknown-linux-androideabi21',
+        ]
     steps:
     - name: Checkout repository
       uses: actions/checkout@main
